@@ -1,38 +1,36 @@
 package com.example.auth_service.utils;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 @Component
 public class RateLimiterClient {
 
-    private final WebClient.Builder webClientBuilder;
+    private final WebClient webClient;
 
-    @Autowired
     public RateLimiterClient(WebClient.Builder webClientBuilder) {
-        this.webClientBuilder = webClientBuilder;
+        this.webClient = webClientBuilder.baseUrl("http://51.21.239.22:8080").build();
     }
 
     public Mono<Boolean> isRequestAllowed(String clientID) {
-        return webClientBuilder.build()
-                .get()
-                .uri("http://13.49.80.120:8080/api/request?clientID=" + clientID) // Use service discovery instead of hardcoding IP
+        return webClient.get()
+                .uri("/api/request?clientID=" + clientID)
                 .retrieve()
-                .bodyToMono(String.class)
+                .bodyToMono(String.class) // Receive as String first
                 .map(response -> {
-                    if ("Request denied due to rate limit exceeded".equals(response)) {
-                        System.out.println("Rate limit exceeded");
+                    System.out.println("Raw response from rate limiter: " + response);
+                    if (response.contains("allowed")) { // Check for success message
+                        System.out.println("Request allowed for clientID: " + clientID);
+                        return true;
+                    } else if (response.contains("denied")) { // Check for rate limit exceeded message
+                        System.out.println("Rate limit exceeded for clientID: " + clientID);
                         return false;
                     }
-                    System.out.println("Request allowed");
-                    return true;
+                    return false; // Fallback in case of unknown response
                 })
                 .onErrorResume(ex -> {
-                    System.out.println("Exception occurred: " + ex.getMessage());
+                    System.out.println("Exception occurred while checking rate limit: " + ex.getMessage());
                     return Mono.just(false);
                 });
     }

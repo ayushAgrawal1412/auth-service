@@ -3,6 +3,7 @@ package com.example.auth_service.service;
 import com.example.auth_service.dto.AuthRequest;
 import com.example.auth_service.utils.RateLimiterClient;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,36 +18,35 @@ public class AuthService {
         this.rateLimiterClient = rateLimiterClient;
     }
 
-    public String signup(AuthRequest request) {
-        // Rate limiting check
-        boolean isAllowed = Boolean.TRUE.equals(rateLimiterClient.isRequestAllowed(request.getUsername())
-                .block()); // Blocking to get the result synchronously
+    public Mono<String> signup(AuthRequest request) {
+        return rateLimiterClient.isRequestAllowed(request.getUsername())
+                .flatMap(isAllowed -> {
+                    if (!Boolean.TRUE.equals(isAllowed)) {
+                        return Mono.just("Rate limit exceeded. Try again later.");
+                    }
 
-        if (!isAllowed) {
-            return "Rate limit exceeded. Try again later.";
-        }
+                    if (users.containsKey(request.getUsername())) {
+                        return Mono.just("User already exists!");
+                    }
 
-        if (users.containsKey(request.getUsername())) {
-            return "User already exists!";
-        }
-
-        users.put(request.getUsername(), request.getPassword());
-        return "User registered successfully!";
+                    users.put(request.getUsername(), request.getPassword());
+                    return Mono.just("User registered successfully!");
+                });
     }
 
-    public String login(AuthRequest request) {
-        boolean isAllowed = Boolean.TRUE.equals(rateLimiterClient.isRequestAllowed(request.getUsername())
-                .block()); // Blocking to get the result synchronously
+    public Mono<String> login(AuthRequest request) {
+        return rateLimiterClient.isRequestAllowed(request.getUsername())
+                .flatMap(isAllowed -> {
+                    if (!Boolean.TRUE.equals(isAllowed)) {
+                        return Mono.just("Rate limit exceeded. Try again later.");
+                    }
 
-        if (!isAllowed) {
-            return "Rate limit exceeded. Try again later.";
-        }
-
-        String password = users.get(request.getUsername());
-        if (password != null && password.equals(request.getPassword())) {
-            return "Login successful!";
-        } else {
-            return "Invalid username or password!";
-        }
+                    String password = users.get(request.getUsername());
+                    if (password != null && password.equals(request.getPassword())) {
+                        return Mono.just("Login successful!");
+                    } else {
+                        return Mono.just("Invalid username or password!");
+                    }
+                });
     }
 }
