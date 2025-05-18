@@ -19,24 +19,24 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public Mono<ResponseEntity<String>> signup(@RequestBody AuthRequest request) {
-        return authService.signup(request)
-                .map(response -> {
-                    if ("Rate limit exceeded. Try again later.".equals(response)) {
-                        return ResponseEntity.status(429).body(response);
-                    }
-                    return ResponseEntity.ok(response);
-                });
+    public ResponseEntity<String> signup(@RequestBody AuthRequest request) {
+        String response = authService.signup(request);
+
+        if ("Rate limit exceeded. Try again later.".equals(response)) {
+            return ResponseEntity.status(429).body(response);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")
-    public Mono<ResponseEntity<String>> login(@RequestBody AuthRequest request) {
-        return authService.login(request)
-                .map(response -> {
-                    if ("Rate limit exceeded. Try again later.".equals(response)) {
-                        return ResponseEntity.status(429).body(response);
-                    }
-                    return ResponseEntity.ok(response);
-                });
+    public ResponseEntity<String> login(@RequestBody AuthRequest request) {
+        String response = authService.login(request);
+
+        if ("Rate limit exceeded. Try again later.".equals(response)) {
+            return ResponseEntity.status(429).body(response);
+        }
+
+        return ResponseEntity.ok(response);
     }
 }

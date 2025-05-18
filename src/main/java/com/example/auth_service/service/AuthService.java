@@ -1,52 +1,61 @@
 package com.example.auth_service.service;
 
 import com.example.auth_service.dto.AuthRequest;
+import com.example.auth_service.model.User;
+import com.example.auth_service.repository.UserRepository;
 import com.example.auth_service.utils.RateLimiterClient;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AuthService {
 
     private final RateLimiterClient rateLimiterClient;
-    private final Map<String, String> users = new HashMap<>();
+    private final UserRepository userRepository;
 
-    public AuthService(RateLimiterClient rateLimiterClient) {
+    public AuthService(RateLimiterClient rateLimiterClient, UserRepository userRepository) {
         this.rateLimiterClient = rateLimiterClient;
+        this.userRepository = userRepository;
     }
 
-    public Mono<String> signup(AuthRequest request) {
-        return rateLimiterClient.isRequestAllowed(request.getUsername())
-                .flatMap(isAllowed -> {
-                    if (!Boolean.TRUE.equals(isAllowed)) {
-                        return Mono.just("Rate limit exceeded. Try again later.");
-                    }
+    public String signup(AuthRequest request) {
+        boolean isAllowed = rateLimiterClient.isRequestAllowed(request.getUsername());
 
-                    if (users.containsKey(request.getUsername())) {
-                        return Mono.just("User already exists!");
-                    }
+        if (!isAllowed) {
+            return "Rate limit exceeded. Try again later.";
+        }
 
-                    users.put(request.getUsername(), request.getPassword());
-                    return Mono.just("User registered successfully!");
-                });
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            return "User already exists!";
+        }
+
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+
+        userRepository.save(user);
+        return "User registered successfully!";
     }
 
-    public Mono<String> login(AuthRequest request) {
-        return rateLimiterClient.isRequestAllowed(request.getUsername())
-                .flatMap(isAllowed -> {
-                    if (!Boolean.TRUE.equals(isAllowed)) {
-                        return Mono.just("Rate limit exceeded. Try again later.");
-                    }
+    public String login(AuthRequest request) {
+        boolean isAllowed = rateLimiterClient.isRequestAllowed(request.getUsername());
 
-                    String password = users.get(request.getUsername());
-                    if (password != null && password.equals(request.getPassword())) {
-                        return Mono.just("Login successful!");
-                    } else {
-                        return Mono.just("Invalid username or password!");
-                    }
-                });
+        if (!isAllowed) {
+            return "Rate limit exceeded. Try again later.";
+        }
+
+        Optional<User> userOptional = userRepository.findByUsername(request.getUsername());
+
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.getPassword().equals(request.getPassword())) {
+                return "Login successful!";
+            } else {
+                return "Invalid username or password!";
+            }
+        } else {
+            return "Invalid username or password!";
+        }
     }
 }
