@@ -1,6 +1,7 @@
 package com.example.auth_service.service;
 
-import com.example.auth_service.dto.AuthRequest;
+import com.example.auth_service.dto.AuthRequestDTO;
+import com.example.auth_service.dto.UserResponseDTO;
 import com.example.auth_service.model.User;
 import com.example.auth_service.repository.UserRepository;
 import com.example.auth_service.utils.RateLimiterClient;
@@ -19,7 +20,7 @@ public class AuthService {
         this.userRepository = userRepository;
     }
 
-    public String signup(AuthRequest request) {
+    public Object signup(AuthRequestDTO request) {
         boolean isAllowed = rateLimiterClient.isRequestAllowed(request.getUsername());
 
         if (!isAllowed) {
@@ -34,11 +35,12 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setPassword(request.getPassword());
 
-        userRepository.save(user);
-        return "User registered successfully!";
+        User savedUser = userRepository.save(user);
+
+        return new UserResponseDTO(savedUser.getId(), savedUser.getUsername());
     }
 
-    public String login(AuthRequest request) {
+    public String login(AuthRequestDTO request) {
         boolean isAllowed = rateLimiterClient.isRequestAllowed(request.getUsername());
 
         if (!isAllowed) {
